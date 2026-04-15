@@ -89,7 +89,7 @@ def build_schedule_graph(solution, problem, original_rows, original_cols):
             if allocated is None or allocated <= 0:
                 continue
             unit_cost = problem.costs[i][j] if i < len(problem.costs) and j < len(problem.costs[i]) else 0
-            lines.append(f'  S{i} -> D{j} [label="{allocated} @ {unit_cost}", penwidth=1.7];')
+            lines.append(f'  S{i} -> D{j} [label="{allocated} @ #{unit_cost}", penwidth=1.7];')
 
     lines.append("}")
     return "\n".join(lines)
