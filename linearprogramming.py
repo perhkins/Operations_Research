@@ -218,6 +218,67 @@ class LinearProgramming:
 
         return {"cfs": cfs, "optimal_point": max(cfs, key=lambda p: self.obj_F.coefficients[0] * p[0] + self.obj_F.coefficients[1] * p[1]) if self.objective == "max" else min(cfs, key=lambda p: self.obj_F.coefficients[0] * p[0] + self.obj_F.coefficients[1] * p[1]), "optimal_value": max(self.obj_F.coefficients[0] * x + self.obj_F.coefficients[1] * y for x, y in cfs) if self.objective == "max" else min(self.obj_F.coefficients[0] * x + self.obj_F.coefficients[1] * y for x, y in cfs)}
     
+    def _construct_tableau(self):
+        T = [self.obj_F.coefficients.copy()]
+        T[0].extend([0] * (len(self.constraints) + 1)) # Add value column for objective function
+        for i in self.constraints:
+            row = self.constraints[i].coefficients.copy()
+            row.append(self.constraints[i].value)
+            row.extend([1 if i == j else 0 for j in range(len(self.constraints))]) # Add slack variable coefficients
+            T.append(row)
+        return T
+
+    def _row_op(self, A, target, source, coeff_t=1, coeff_s=1, operation="add"):
+        """
+        Perform row operation on matrix A:
+        target row = coeff_target*target_row (+/-) coeff_source*source_row
+        """
+        if operation == "add":
+            A[target] = coeff_t*A[target] + coeff_s*A[source]
+        elif operation == "sub":
+            A[target] = coeff_t*A[target] - coeff_s*A[source]
+        else:
+            raise ValueError("operation must be 'add' or 'sub'")
+        return A
+    
+    def _find_pivot(self, tableau):
+        import numpy as np
+        # Find pivot column (most negative in objective function row)
+        pivot_col = np.argmin(tableau[0][:-1])
+        if tableau[0][pivot_col] >= 0:
+            return None, None  # Optimal solution found
+
+        # Find pivot row (minimum ratio test)
+        ratios = []
+        for i in range(1, len(tableau)):
+            if tableau[i][pivot_col] > 0:
+                ratios.append(tableau[i][-1] / tableau[i][pivot_col])
+            else:
+                ratios.append(float('inf'))  # Ignore non-positive entries
+        pivot_row = np.argmin(ratios) + 1  # +1 to account for objective function row
+        if ratios[pivot_row - 1] == float('inf'):
+            raise ValueError("Linear program is unbounded.")
+        
+        return pivot_row, pivot_col
+
     def _simplex_solution(self):
-        # Placeholder for simplex method implementation
-        raise NotImplementedError("Simplex method is not yet implemented.")
+        import numpy as np
+        tableau = np.array(self._construct_tableau())
+        basic_vars_idx = [len(self.obj_F.coefficients) + i for i in range(len(self.constraints))] # Initial basic variables are the slack variables
+
+        pivot_row, pivot_col = self._find_pivot(tableau)
+        while pivot_row is not None and pivot_col is not None:
+            tableau[pivot_row] = (1/tableau[pivot_row][pivot_col]) * tableau[pivot_row] # Normalize pivot row
+
+            for i in range(len(tableau)):
+                if i != pivot_row:
+                    tableau = self._row_op(tableau, i, pivot_row, operation="sub", coeff_s=tableau[i][pivot_col])
+            basic_vars_idx[pivot_row - 1] = pivot_col # Update basic variable index for the pivot row
+            pivot_row, pivot_col = self._find_pivot(tableau)
+        
+        optimal_value = tableau[0][-1]
+        optimal_point = [0] * len(self.obj_F.coefficients)
+        for i, var_idx in enumerate(basic_vars_idx):
+            if 0 <= var_idx < len(optimal_point):
+                optimal_point[var_idx] = tableau[i + 1][-1]
+        return {"optimal_value": optimal_value, "optimal_point": optimal_point}
