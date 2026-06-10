@@ -1,5 +1,5 @@
 import streamlit as st
-from transportation import TransportationProblem
+from models.transportation import TransportationProblem
 
 
 def update_supply_data(st, df):

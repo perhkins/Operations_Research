@@ -17,20 +17,33 @@ class LinearProgramming:
 
         self._check_and_balance_constraints()
 
-    def _check_and_balance_constraints(self, constraint: Constraint = None) -> Constraint|None:
-        if not constraint and self.constraints:
-            for constraint in self.constraints:
-                if (constraint.operator == '>=' and self.objective == "max") or (constraint.operator == '<=' and self.objective == "min"):
-                    constraint.coefficients = [-c for c in constraint.coefficients]
-                    constraint.value = -constraint.value
-                    constraint.operator = '<=' if self.objective == "max" else '>='
-            return
-        else:
-            if (constraint.operator == '>=' and self.objective == "max") or (constraint.operator == '<=' and self.objective == "min"):
-                constraint.coefficients = [-c for c in constraint.coefficients]
-                constraint.value = -constraint.value
-                constraint.operator = '<=' if self.objective == "max" else '>='
-            return constraint
+    def _check_and_balance_constraints(self, constraint: Constraint = None):
+
+        if constraint is None:
+
+            for c in self.constraints:
+
+                if (
+                    (c.operator == ">=" and self.objective == "max")
+                    or
+                    (c.operator == "<=" and self.objective == "min")
+                ):
+                    c.coefficients = [-x for x in c.coefficients]
+                    c.value = -c.value
+                    c.operator = "<=" if self.objective == "max" else ">="
+
+            return self.constraints
+
+        if (
+            (constraint.operator == ">=" and self.objective == "max")
+            or
+            (constraint.operator == "<=" and self.objective == "min")
+        ):
+            constraint.coefficients = [-x for x in constraint.coefficients]
+            constraint.value = -constraint.value
+            constraint.operator = "<=" if self.objective == "max" else ">="
+
+        return constraint
 
     def set_objective(self, objective: str, coefficients: list):
         if objective != "max" and objective != "min":
@@ -72,22 +85,44 @@ class LinearProgramming:
     def _plot(self, cfs: list[tuple]):
         import matplotlib.pyplot as plt
         import numpy as np
-        x_vals = np.linspace(0, 10, 400)
+
+        max_x = 10
+        max_y = 10
+
+        if cfs:
+            max_x = max(max_x, max(p[0] for p in cfs) * 1.2)
+            max_y = max(max_y, max(p[1] for p in cfs) * 1.2)
+
+        x_vals = np.linspace(0, max_x, 400)
         fig, ax = plt.subplots(figsize=(8, 6))
-        for a, b, c in zip(self.constraints.coefficients[0], self.constraints.coefficients[1], self.constraints.value):
+        for constraint in self.constraints:
+            a, b = constraint.coefficients
+            c = constraint.value
+
+            # use a, b, c
             if b != 0:
                 y_vals = (c - a*x_vals) / b
                 ax.plot(x_vals, y_vals, label=f"{a}x + {b}y ≤ {c}")
             else:
                 ax.axvline(x=c/a, label=f"x = {c/a}")
-        if cfs:
+        if cfs and len(cfs) > 2:
             polygon = np.array(cfs)
-            ax.fill(polygon[:, 0], polygon[:, 1], color='lavender', alpha=0.5, label="Feasible Region")
+
+            center = polygon.mean(axis=0)
+
+            angles = np.arctan2(
+                polygon[:, 1] - center[1],
+                polygon[:, 0] - center[0]
+            )
+
+            polygon = polygon[np.argsort(angles)]
+            ax.fill(polygon[:, 0], polygon[:, 1], color='cyan', alpha=0.5, label="Feasible Region", zorder=1)
+            # ax.plot(polygon[:, 0], polygon[:, 1], color='cyan', alpha=0.7, zorder=2)
         for x, y in cfs:
-            ax.scatter(x, y, color='black')
+            ax.scatter(x, y, color='black', zorder=3)
             ax.text(x + 0.1, y + 0.1, f"({x:.1f}, {y:.1f})")
-        ax.set_xlim(0, 10)
-        ax.set_ylim(0, 10)
+        ax.set_xlim(0, max_x)
+        ax.set_ylim(0, max_y)
         ax.set_xlabel("x")
         ax.set_ylabel("y")
         ax.set_title("Linear Programming Feasible Region")
