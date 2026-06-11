@@ -399,25 +399,26 @@ class AllocationTable:
     def __init__(self, supply_length, demand_length):
         self.allocations = [[None] * demand_length for _ in range(supply_length)]
 
-#test case  
-problem = TransportationProblem(4,3)
-supply = [20,16,10,12]
-demand = [14,24,10]
-for i,val in enumerate(supply):
-    problem.set_supply(i,val)
-print(problem.supply)
-for j,val in enumerate(demand):
-    problem.set_demand(j,val)
-print(problem.demand)
+if __name__ == "__main__":
+    #test case  
+    problem = TransportationProblem(4,3)
+    supply = [20,16,10,12]
+    demand = [14,24,10]
+    for i,val in enumerate(supply):
+        problem.set_supply(i,val)
+    print(problem.supply)
+    for j,val in enumerate(demand):
+        problem.set_demand(j,val)
+    print(problem.demand)
 
-costs = [[8,6,4],[10,12,2],[12,8,6],[6,10,8]]
-for k, row in enumerate(costs):
-    for l, val in enumerate(row):
-        problem.set_cost(k,l,val)
-print(problem.costs)
+    costs = [[8,6,4],[10,12,2],[12,8,6],[6,10,8]]
+    for k, row in enumerate(costs):
+        for l, val in enumerate(row):
+            problem.set_cost(k,l,val)
+    print(problem.costs)
 
-solution = problem.solve("leastcost")
-print(solution)
-allocation_schedule = problem.show_allocation_schedule(solution[0])
-print("Degenerate Solution?", problem.is_degenerate(solution[0]))
-print("Initial Basic Feasible Transportation Cost",problem.calculate_total_cost(solution[0]))
+    solution = problem.solve("leastcost")
+    print(solution)
+    allocation_schedule = problem.show_allocation_schedule(solution[0])
+    print("Degenerate Solution?", problem.is_degenerate(solution[0]))
+    print("Initial Basic Feasible Transportation Cost",problem.calculate_total_cost(solution[0]))

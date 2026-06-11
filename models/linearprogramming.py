@@ -74,9 +74,10 @@ class LinearProgramming:
 
         for constraint in self.constraints: #At optimality, the inequality constraints will be satisfied as equalities.
             # For each constraint, find the intercepts with the axes
-            x_intercept = constraint.value / constraint.coefficients[0] if constraint.coefficients[0] != 0 else None
-            y_intercept = constraint.value / constraint.coefficients[1] if constraint.coefficients[1] != 0 else None
+            x_intercept = constraint.value / constraint.coefficients[0] if constraint.coefficients[0] != 0 else 0
+            y_intercept = constraint.value / constraint.coefficients[1] if constraint.coefficients[1] != 0 else 0
             feasible_solns.append((x_intercept if x_intercept > 0 else None, y_intercept if y_intercept > 0 else None))
+        print("Axis intercepts for each constraint:", feasible_solns)
         new_CFS = self._CFS_(feasible_solns)
         self.obj_F.value = new_CFS["optimal_value"]
         fig = self._plot(new_CFS["cfs"])
@@ -120,7 +121,7 @@ class LinearProgramming:
             # ax.plot(polygon[:, 0], polygon[:, 1], color='cyan', alpha=0.7, zorder=2)
         for x, y in cfs:
             ax.scatter(x, y, color='black', zorder=3)
-            ax.text(x + 0.1, y + 0.1, f"({x:.1f}, {y:.1f})")
+            ax.text(x + 0.1, y + 0.1, f"({x:.1f}, {y:.1f})", fontsize=9, zorder=4)
         ax.set_xlim(0, max_x)
         ax.set_ylim(0, max_y)
         ax.set_xlabel("x")
@@ -173,6 +174,9 @@ class LinearProgramming:
         - (None, y) means point on y-axis at (0,y).
         Intersection is (x_line(y), y).
         """
+        if None in line:
+            return None  # Invalid line definition
+        
         m, b = self._line_equation(*line)
         px, py = point
 
@@ -224,9 +228,9 @@ class LinearProgramming:
                         intersection = self._intersect_line_point(feasible_solns[i], feasible_solns[j])
                         points.append(intersection) if intersection else None
                     else:
-                        continue #To reduce redundant checks since the line-point intersection will be checked when the other point is treated as a line in the next iteration.
-                        # intersection = self._intersect_line_point(feasible_solns[j], feasible_solns[i])
-                        # points.append(intersection) if intersection else None
+                        intersection = self._intersect_line_point(feasible_solns[j], feasible_solns[i])
+                        points.append(intersection) if intersection else None
+        print("All intersection points:", points)
         return [point for point in points if self._is_feasible(point)]
 
     
@@ -254,12 +258,12 @@ class LinearProgramming:
         return {"cfs": cfs, "optimal_point": max(cfs, key=lambda p: self.obj_F.coefficients[0] * p[0] + self.obj_F.coefficients[1] * p[1]) if self.objective == "max" else min(cfs, key=lambda p: self.obj_F.coefficients[0] * p[0] + self.obj_F.coefficients[1] * p[1]), "optimal_value": max(self.obj_F.coefficients[0] * x + self.obj_F.coefficients[1] * y for x, y in cfs) if self.objective == "max" else min(self.obj_F.coefficients[0] * x + self.obj_F.coefficients[1] * y for x, y in cfs)}
     
     def _construct_tableau(self):
-        T = [self.obj_F.coefficients.copy()]
+        T = [[-c for c in self.obj_F.coefficients]]
         T[0].extend([0] * (len(self.constraints) + 1)) # Add value column for objective function
-        for i in self.constraints:
+        for i in range(len(self.constraints)):
             row = self.constraints[i].coefficients.copy()
-            row.append(self.constraints[i].value)
-            row.extend([1 if i == j else 0 for j in range(len(self.constraints))]) # Add slack variable coefficients
+            row.extend([1 if i == j else 0 for j in range(len(self.constraints))])
+            row.append(self.constraints[i].value)# Add slack variable coefficients
             T.append(row)
         return T
 
@@ -295,9 +299,23 @@ class LinearProgramming:
             raise ValueError("Linear program is unbounded.")
         
         return pivot_row, pivot_col
+    
+    def _duality(self):
+        # Convert minimization to maximization or vice versa
+        new_rhs = self.obj_F.coefficients
+        self.obj_F.coefficients = [c.value for c in self.constraints]
+        new_constraints = []
+        for i in range(len(self.constraints[0].coefficients)):
+            coeffs = [self.constraints[j].coefficients[i] for j in range(len(self.constraints))]
+            new_constraints.append(Constraint(coeffs, "<=", new_rhs[i]))
+
+        self.constraints = new_constraints
 
     def _simplex_solution(self):
         import numpy as np
+        if self.objective == "min":
+            self._duality()
+
         tableau = np.array(self._construct_tableau())
         basic_vars_idx = [len(self.obj_F.coefficients) + i for i in range(len(self.constraints))] # Initial basic variables are the slack variables
 

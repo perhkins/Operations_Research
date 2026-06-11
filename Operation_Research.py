@@ -8,7 +8,7 @@ Welcome to the Operations Research page! Here, you can explore various optimizat
 ### Quick Links:
 - [Transportation Problem](/Transportation_Problem)
 - [Linear Programming](/Linear_Programming)
-- [Inventory Management](/Inventory_Management)
+- [Inventory Management](/EOQ)
             
 
 Check the sidebar for more resources and information on Operations Research!

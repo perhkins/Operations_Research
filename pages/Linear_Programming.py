@@ -197,7 +197,8 @@ if st.button("🚀 Solve Problem", use_container_width=True):
         # Simplex Method
         # ----------------------
         else:
-
+            if objective == "min":
+                st.info("Duality Applied: Problem Transformed to Maximization")
             st.subheader("Optimal Solution")
 
             col1, col2 = st.columns(2)
