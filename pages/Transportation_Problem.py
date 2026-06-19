@@ -96,11 +96,38 @@ def build_schedule_graph(solution, problem, original_rows, original_cols):
 
 
 def main():
-    st.title("Transportation Problem Solver")
-    
-    # Input supply and demand
-    supply_length = st.number_input("Number of Supply Points", min_value=1, step=1)
-    demand_length = st.number_input("Number of Demand Points", min_value=1, step=1)
+    st.set_page_config(
+        page_title="Transportation Problem Solver",
+        page_icon="🚚",
+        layout="wide"
+    )
+
+    st.title("🚚 Transportation Problem Solver")
+
+    st.markdown(
+        "Define supply points, demand points, and transportation costs "
+        "to find the minimum-cost transportation plan."
+    )
+
+    st.divider()
+
+    col_a, col_b = st.columns(2)
+
+    with col_a:
+        supply_length = st.number_input(
+            "Number of Supply Points",
+            min_value=1,
+            value=3,
+            step=1,
+        )
+
+    with col_b:
+        demand_length = st.number_input(
+            "Number of Demand Points",
+            min_value=1,
+            value=3,
+            step=1,
+        )
     
     # Initialize session state for supply, demand, and cost data
     if "supply_length" not in st.session_state:
@@ -121,69 +148,116 @@ def main():
         problem = TransportationProblem(supply_length, demand_length)
         
         # Input supply and demand values side by side
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("Supply Capacities (Units)")
-            supply_df = st.data_editor(
-                pd.DataFrame({
-                    f"S{i+1}": [0] for i in range(supply_length)
-                }).T.rename_axis("Supply").rename(columns={0: "Supply"}),
-                num_rows="fixed",
-                key="supply_editor"
-            )
-        
-        with col2:
-            st.subheader("Demand Requirements (Units)")
-            demand_df = st.data_editor(
-                pd.DataFrame({
-                    f"D{j+1}": [0] for j in range(demand_length)
-                }).T.rename_axis("Demand").rename(columns={0: "Demand"}),
-                num_rows="fixed",
-                key="demand_editor"
-            )
-        
-        # Input cost matrix using a table (supply as rows, demand as columns)
-        st.subheader("Cost Matrix")
-        cost_df = st.data_editor(
-            pd.DataFrame(
-                0,
-                index=[f"S{i+1}" for i in range(supply_length)],
-                columns=[f"D{j+1}" for j in range(demand_length)]
-            ),
-            num_rows="fixed",
-            key="cost_editor"
-        )
+        st.subheader("Problem Data")
 
-        col_method_1, col_method_2, col_method_3 = st.columns(3)
-        with col_method_1:
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.markdown("#### Supply Capacities")
+
+            supply_values = []
+            for i in range(supply_length):
+                value = st.number_input(
+                    f"S{i+1}",
+                    min_value=0,
+                    value=0,
+                    step=1,
+                    key=f"supply_{i}",
+                )
+                supply_values.append(value)
+
+        with col2:
+            st.markdown("#### Demand Requirements")
+
+            demand_values = []
+            for j in range(demand_length):
+                value = st.number_input(
+                    f"D{j+1}",
+                    min_value=0,
+                    value=0,
+                    step=1,
+                    key=f"demand_{j}",
+                )
+                demand_values.append(value)
+
+        # Cost Matrix
+        st.markdown("---")
+        st.subheader("Transportation Cost Matrix")
+
+        cost_values = []
+
+        # Header row
+        header_cols = st.columns(demand_length + 1)
+        header_cols[0].markdown("**Source**")
+
+        for j in range(demand_length):
+            header_cols[j + 1].markdown(f"**D{j+1}**")
+
+        # Matrix rows
+        for i in range(supply_length):
+            row_cols = st.columns(demand_length + 1)
+
+            row_cols[0].markdown(f"**S{i+1}**")
+
+            row_costs = []
+
+            for j in range(demand_length):
+                cost = row_cols[j + 1].number_input(
+                    label=f"S{i+1}-D{j+1}",
+                    min_value=0,
+                    value=0,
+                    step=1,
+                    label_visibility="collapsed",
+                    key=f"cost_{i}_{j}",
+                )
+                row_costs.append(cost)
+
+            cost_values.append(row_costs)
+
+        st.markdown("---")
+        st.subheader("Solution Settings")
+
+        settings_col1, settings_col2, settings_col3 = st.columns(3)
+
+        with settings_col1:
             initial_method = st.selectbox(
-                "Initial Method",
-                options=["northwest", "leastcost"],
-                format_func=lambda value: "North-West Corner" if value == "northwest" else "Least Cost",
+                "Initial Solution",
+                ["northwest", "leastcost"],
+                format_func=lambda x: {
+                    "northwest": "North-West Corner",
+                    "leastcost": "Least Cost",
+                }[x],
             )
-        with col_method_2:
+
+        with settings_col2:
             optimization_method = st.selectbox(
-                "Optimization Method",
-                options=["modi", "steppingstone"],
-                format_func=lambda value: "MODI" if value == "modi" else "Stepping Stone",
+                "Optimization",
+                ["modi", "steppingstone"],
+                format_func=lambda x: {
+                    "modi": "MODI",
+                    "steppingstone": "Stepping Stone",
+                }[x],
             )
-        with col_method_3:
-            show_iterations = st.checkbox("Show Iterations", value=False)
+
+        with settings_col3:
+            show_iterations = st.checkbox(
+                "Show Iterations",
+                value=False,
+            )
         
         if st.button("Solve"):
             original_rows = supply_length
             original_cols = demand_length
             
             # Use set_supply, set_demand, set_cost to populate problem directly
-            for i in range(len(supply_df)):
-                problem.set_supply(i, supply_df["Supply"].iloc[i])
-            for j in range(len(demand_df)):
-                problem.set_demand(j, demand_df["Demand"].iloc[j])
-            for i in range(len(cost_df)):
-                for j in range(len(cost_df.columns)):
-                    problem.set_cost(i, j, cost_df.iloc[i, j])
-            
+            for i, value in enumerate(supply_values):
+                problem.set_supply(i, value)
+            for j, value in enumerate(demand_values):
+                problem.set_demand(j, value)
+            for i in range(supply_length):
+                for j in range(demand_length):
+                    problem.set_cost(i, j, cost_values[i][j])
+
             try:
                 solve_result = problem.solve(
                     method=initial_method,
