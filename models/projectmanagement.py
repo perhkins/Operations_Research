@@ -125,3 +125,34 @@ class CostAnalysis:
                         min_cost = new_cost
                         min_duration = new_duration
         return min_cost, min_duration
+    
+#PERT - Project Evaluation and Review Technique
+class PERTActivity(Activity):
+    def __init__(self, Activity, optimistic_time:int, most_likely_time:int, pessimistic_time:int, predecessors:list[Activity] = None):
+        expected_time = (optimistic_time + 4 * most_likely_time + pessimistic_time) / 6
+        super().__init__(Activity, expected_time, predecessors)
+        self.optimistic_time = optimistic_time
+        self.most_likely_time = most_likely_time
+        self.pessimistic_time = pessimistic_time
+        self.expected_time = expected_time
+        self.variance = ((pessimistic_time - optimistic_time) / 6) ** 2
+
+class PERT(Project):
+    def __init__(self):
+        super().__init__()
+        self.activities: list[PERTActivity] = []
+        self.paths: list[list[PERTActivity]] = [[]]
+        self.critical_path: tuple[list[PERTActivity], int] = ([], 0)
+    
+    def add_Activity(self, Activity: PERTActivity):
+        super().add_Activity(Activity)
+    
+    def cummulative_variance(self):
+        variance = 0
+        for a in self.critical_path[0]:
+            variance += a.variance
+        return variance
+    
+    def cummulative_standard_deviation(self):
+        return self.cummulative_variance() ** 0.5
+    
