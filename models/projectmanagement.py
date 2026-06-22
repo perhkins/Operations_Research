@@ -123,11 +123,11 @@ class CostAnalysis:
     def __init__(self, project: Project, overhead_cost:int = 0):
         self.project = project
         self.project.get_paths()
-        self.overhead_cost = overhead_cost * self.project.critical_path[1]
+        self.overhead_cost = overhead_cost
         self.activity_extensions: list[ActivityExtended] = []
 
     def total_normal_cost(self):
-        return sum(a.normal_cost for a in self.activity_extensions) + self.overhead_cost
+        return sum(a.normal_cost for a in self.activity_extensions) + (self.overhead_cost * self.project.critical_path[1])
     
     def minimal_cost_and_duration(self):
         min_cost = self.total_normal_cost()
@@ -135,10 +135,10 @@ class CostAnalysis:
         for a in self.activity_extensions:
             if a.Activity in self.project.critical_path[0]: #Only consider crashing activities on the critical path
                 reduced_duration = a.Activity.duration - a.crash_time
-                cost_crash = (a.crash_cost - a.normal_cost)
+                additional_cost = (a.crash_cost - a.normal_cost)
                 if reduced_duration > 0: #Only consider crashing if it reduces cost
                     new_duration = min_duration - reduced_duration
-                    new_cost = min_cost + cost_crash - (self.overhead_cost * reduced_duration)
+                    new_cost = min_cost + additional_cost - (self.overhead_cost * reduced_duration)
                     if new_cost < min_cost:
                         min_cost = new_cost
                         min_duration = new_duration

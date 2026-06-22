@@ -211,19 +211,7 @@ def CA_CPM(project: Project, both: bool = False):
 
     for row in activities_data:
 
-        preds = None
-
-        if "--" not in row["Predecessors"]:
-            preds = [
-                lookup[p]
-                for p in row["Predecessors"]
-            ]
-
-        act = Activity(
-            row["Activity"],
-            row["Duration"],
-            preds
-        )
+        act = lookup[row["Activity"]]
 
         act_ext = ActivityExtended(
             act,
