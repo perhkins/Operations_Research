@@ -12,7 +12,7 @@ from models.projectmanagement import Project, Activity, Event, TimeAnalysis, Cos
 # ==========================================
 
 st.set_page_config(
-    page_title="CPM / PERT Project Planner",
+    page_title="CPM / PERT Project Management",
     page_icon="📈",
     layout="wide"
 )
@@ -419,7 +419,7 @@ def draw_event_network(project: Project):
         # Forward Pass
 
         ax.text(
-            x - 0.15,
+            x - 0.18,
             y - 0.12,
             str(event.Fpass),
             ha="center",
@@ -430,7 +430,7 @@ def draw_event_network(project: Project):
         # Backward Pass
 
         ax.text(
-            x + 0.15,
+            x + 0.18,
             y - 0.12,
             str(event.Bpass),
             ha="center",
@@ -588,13 +588,11 @@ if st.button("🚀 Run Analysis", type="primary"):
 
     # PERT
     if module == "PERT":
+        TA_CPM(project, show_floats=False)
 
         variance = project.cummulative_variance()
 
-        sd = (
-            project
-            .cummulative_standard_deviation()
-        )
+        sd = project.cummulative_standard_deviation()
 
         st.subheader("📊 PERT Results")
 
