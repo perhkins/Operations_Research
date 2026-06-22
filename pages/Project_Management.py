@@ -63,6 +63,15 @@ activities_data = []
 
 activity_names = []
 
+if module == "CPM" and analysis_type in ["Cost Analysis", "Both"]:
+    #Overhead Cost per time unit
+    overhead_cost = st.number_input(
+        "Overhead Cost per Time Unit",
+        value=20,
+        step=1
+    )
+    st.caption("If your normal costs and crash costs are in units of thousand/any other unit, make sure to adjust the overhead cost accordingly to maintain consistency in the analysis.")
+
 for i in range(n_activities):
 
     st.markdown(f"### Activity {i+1}")
@@ -166,144 +175,14 @@ for i in range(n_activities):
             }
         )
 
-if st.button("🚀 Run Analysis", type="primary"):
+def TA_CPM(project: Project, show_floats: bool = True):
+    st.write("Paths:", len(project.paths))
+    ta = TimeAnalysis(project)
 
-    if module == "CPM":
+    ta.forward_pass()
+    ta.backward_pass()
 
-        project = Project()
-
-        lookup = {}
-
-        for row in activities_data:
-
-            preds = None
-
-            if "--" not in row["Predecessors"]:
-                preds = [
-                    lookup[p]
-                    for p in row["Predecessors"]
-                ]
-
-            act = Activity(
-                row["Activity"],
-                row["Duration"],
-                preds
-            )
-
-            lookup[row["Activity"]] = act
-            project.add_Activity(act)
-
-    else:
-
-        project = PERT()
-
-        lookup = {}
-
-        for row in activities_data:
-
-            preds = None
-
-            if "--" not in row["Predecessors"]:
-                preds = [
-                    lookup[p]
-                    for p in row["Predecessors"]
-                ]
-
-            act = PERTActivity(
-                row["Activity"],
-                row["Optimistic"],
-                row["Most Likely"],
-                row["Pessimistic"],
-                preds
-            )
-
-            lookup[row["Activity"]] = act
-            project.add_Activity(act)
-
-    for a in project.activities:
-        print(
-            a.Activity,
-            "nextEvent:",
-            None if a.nextEvent is None else a.nextEvent.id
-        )
-    project.get_paths()
-
-    # ======================================
-    # KPIs
-    # ======================================
-
-    cp_names = [
-        a.Activity
-        for a in project.critical_path[0]
-    ]
-
-    duration = project.critical_path[1]
-
-    st.divider()
-
-    c1,c2,c3 = st.columns(3)
-
-    c1.metric(
-        "Project Duration",
-        duration
-    )
-
-    c2.metric(
-        "Activities",
-        len(project.activities)
-    )
-
-    c3.metric(
-        "Critical Path Length",
-        len(cp_names)
-    )
-
-    
-
-    # ======================================
-    # CRITICAL PATH
-    # ======================================
-
-    st.subheader("🔥 Critical Paths")
-
-    st.success(
-        " → ".join(cp_names)
-    )
-    critical_paths = []
-
-    for path in project.paths:
-
-        duration = sum(a.duration for a in path)
-
-        if duration == project.critical_path[1]:
-            if path != project.critical_path[0]:
-                critical_paths.append(
-                    " → ".join(
-                        a.Activity for a in path
-                    )
-                )
-    
-    if critical_paths:
-        st.subheader("Additional Critical Paths")
-
-        for path in critical_paths:
-            st.write(path)
-    
-    if module == "CPM" and analysis_type == "Both":
-        st.info(
-            "Time Analysis and Cost Analysis results are both available below."
-        )
-
-    # ======================================
-    # TIME ANALYSIS
-    # ======================================
-
-    if module == "CPM" and analysis_type == "Time Analysis":
-        st.write("Paths:", len(project.paths))
-        ta = TimeAnalysis(project)
-
-        ta.forward_pass()
-        ta.backward_pass()
+    if show_floats:
 
         float_table = []
 
@@ -323,10 +202,71 @@ if st.button("🚀 Run Analysis", type="primary"):
             use_container_width=True
         )
 
-    # ======================================
-    # EVENT NETWORK GRAPH
-    # ======================================
+    draw_event_network(project)
 
+def CA_CPM(project: Project, both: bool = False):
+    if not both:
+        TA_CPM(project, show_floats=False)
+    activity_extensions = []
+
+    for row in activities_data:
+
+        preds = None
+
+        if "--" not in row["Predecessors"]:
+            preds = [
+                lookup[p]
+                for p in row["Predecessors"]
+            ]
+
+        act = Activity(
+            row["Activity"],
+            row["Duration"],
+            preds
+        )
+
+        act_ext = ActivityExtended(
+            act,
+            row["Normal Cost"],
+            row["Crash Cost"],
+            row["Crash Time"]
+        )
+
+        activity_extensions.append(act_ext)
+    
+    ca = CostAnalysis(project, overhead_cost)
+    ca.activity_extensions = activity_extensions
+
+    total_normal_cost = ca.total_normal_cost()
+
+    min_cost, min_duration = ca.minimal_cost_and_duration()
+
+    st.subheader("💰 Cost Analysis")
+
+    c1,c2 = st.columns(2)
+
+    c1.metric(
+        "Total Normal Cost",
+        total_normal_cost
+    )
+
+    c2.metric(
+        "Minimal Cost",
+        min_cost
+    )
+
+    c3,c4 = st.columns(2)
+    c3.metric(
+        "Original Duration",
+        project.critical_path[1]
+    )
+    c4.metric(
+        "Minimal Duration",
+        min_duration
+    )
+
+# EVENT NETWORK GRAPH
+def draw_event_network(project: Project):
     st.subheader("📌 Event Network Graph")
 
     G = nx.DiGraph()
@@ -522,61 +462,143 @@ if st.button("🚀 Run Analysis", type="primary"):
 
     st.pyplot(fig)
 
-    # ======================================
-    # COST ANALYSIS
-    # ======================================
+if st.button("🚀 Run Analysis", type="primary"):
 
-    if module == "CPM" and analysis_type == "Cost Analysis":
+    if module == "CPM":
 
-        st.subheader("💰 Cost Analysis")
+        project = Project()
 
-        overhead = st.number_input(
-            "Overhead Cost Per Day",
-            value=0
-        )
-
-        ca = CostAnalysis(
-            project,
-            overhead
-        )
+        lookup = {}
 
         for row in activities_data:
 
-            ext = ActivityExtended(
-                lookup[row["Activity"]],
-                row["Normal Cost"],
-                row["Crash Cost"],
-                row["Crash Time"]
+            preds = None
+
+            if "--" not in row["Predecessors"]:
+                preds = [
+                    lookup[p]
+                    for p in row["Predecessors"]
+                ]
+
+            act = Activity(
+                row["Activity"],
+                row["Duration"],
+                preds
             )
 
-            ca.activity_extensions.append(ext)
+            lookup[row["Activity"]] = act
+            project.add_Activity(act)
 
-        total_cost = ca.total_normal_cost()
+    else:
 
-        min_cost, min_duration = (
-            ca.minimal_cost_and_duration()
+        project = PERT()
+
+        lookup = {}
+
+        for row in activities_data:
+
+            preds = None
+
+            if "--" not in row["Predecessors"]:
+                preds = [
+                    lookup[p]
+                    for p in row["Predecessors"]
+                ]
+
+            act = PERTActivity(
+                row["Activity"],
+                row["Optimistic"],
+                row["Most Likely"],
+                row["Pessimistic"],
+                preds
+            )
+
+            lookup[row["Activity"]] = act
+            project.add_Activity(act)
+
+    for a in project.activities:
+        print(
+            a.Activity,
+            "nextEvent:",
+            None if a.nextEvent is None else a.nextEvent.id
         )
-
-        col1,col2 = st.columns(2)
-
-        col1.metric(
-            "Normal Cost",
-            f"${total_cost:,.2f}"
-        )
-
-        col2.metric(
-            "Minimum Cost",
-            f"${min_cost:,.2f}"
-        )
-
-        st.info(
-            f"Optimal Duration = {min_duration}"
-        )
+    project.get_paths()
 
     # ======================================
+    # KPIs
+    # ======================================
+
+    cp_names = [
+        a.Activity
+        for a in project.critical_path[0]
+    ]
+
+    duration = project.critical_path[1]
+
+    st.divider()
+
+    c1,c2,c3 = st.columns(3)
+
+    c1.metric(
+        "Project Duration",
+        duration
+    )
+
+    c2.metric(
+        "Activities",
+        len(project.activities)
+    )
+
+    c3.metric(
+        "Critical Path Length",
+        len(cp_names)
+    )
+
+    
+
+    # ======================================
+    # CRITICAL PATH
+    # ======================================
+
+    st.subheader("🔥 Critical Paths")
+
+    st.success(
+        " → ".join(cp_names)
+    )
+    critical_paths = []
+
+    for path in project.paths:
+
+        duration = sum(a.duration for a in path)
+
+        if duration == project.critical_path[1]:
+            if path != project.critical_path[0]:
+                critical_paths.append(
+                    " → ".join(
+                        a.Activity for a in path
+                    )
+                )
+    
+    if critical_paths:
+        st.subheader("Additional Critical Paths")
+
+        for path in critical_paths:
+            st.write(path)
+    
+    if module == "CPM" and analysis_type == "Both":
+        TA_CPM(project)
+        CA_CPM(project, both=True)
+
+
+    # TIME ANALYSIS
+    if module == "CPM" and analysis_type == "Time Analysis":
+        TA_CPM(project)
+
+    # COST ANALYSIS
+    if module == "CPM" and analysis_type == "Cost Analysis":
+        CA_CPM(project)
+
     # PERT
-    # ======================================
-
     if module == "PERT":
 
         variance = project.cummulative_variance()
