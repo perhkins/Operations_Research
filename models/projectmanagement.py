@@ -18,7 +18,7 @@ class Project:
         self.head: Event = Event()
         self.nEvents: int = 1
         self.activities: list[Activity] = []
-        self.paths: list[list[Activity]] = [[]]
+        self.paths: list[list[Activity]] = []
         self.critical_path: tuple[list[Activity], int] = ([], 0)
 
     def add_Activity(self, Activity: Activity):
@@ -26,14 +26,20 @@ class Project:
         if Activity.predecessors is None:
             self.head.forwardedjobs.append(Activity)
         else:
-            # Find the event corresponding to the last predecessor
-            last_predecessor = Activity.predecessors[-1]
+            # Find the event corresponding to the one of the predecessor
+            if all(p.nextEvent is None for p in Activity.predecessors):
+                last_predecessor = Activity.predecessors[-1]
+            else:
+                valid_preds = [p for p in Activity.predecessors if p.nextEvent is not None]
+                last_predecessor = max(valid_preds, key=lambda p: p.nextEvent.id)
+
             if last_predecessor.nextEvent is None:
                 # Create a new event if the predecessor doesn't have a next event
                 last_predecessor.nextEvent = Event()
                 self.nEvents += 1
                 last_predecessor.nextEvent.id = self.nEvents
-                for predecessor in Activity.predecessors:
+            
+            for predecessor in Activity.predecessors:
                     if predecessor.nextEvent is None:
                         predecessor.nextEvent = last_predecessor.nextEvent
                     last_predecessor.nextEvent.pendingjobs.append(predecessor)
@@ -42,6 +48,12 @@ class Project:
 
     def get_paths(self):
         def dfs(event: Event, path: list[Activity]):
+            if event is None:
+                self.paths.append(path.copy())
+                duration = sum(Activity.duration for Activity in path)
+                if duration > self.critical_path[1]:
+                    self.critical_path = (path.copy(), duration)
+                return
             if not event.forwardedjobs:
                 self.paths.append(path.copy())
                 duration = sum(Activity.duration for Activity in path)
@@ -88,10 +100,16 @@ class TimeAnalysis:
     def floats(self):
         Floats = {}
         for a in self.project.activities:
-            total_float = a.nextEvent.Bpass - a.predecessors[-1].nextEvent.Fpass - a.duration
-            ind_float = a.nextEvent.Fpass - a.predecessors[-1].nextEvent.Bpass - a.duration
-            free_float = a.nextEvent.Fpass - a.predecessors[-1].nextEvent.Fpass - a.duration
-            Floats[a.Activity] = (total_float, ind_float, free_float)
+            if a.predecessors:
+                total_float = a.nextEvent.Bpass - a.predecessors[-1].nextEvent.Fpass - a.duration
+                ind_float = a.nextEvent.Fpass - a.predecessors[-1].nextEvent.Bpass - a.duration
+                free_float = a.nextEvent.Fpass - a.predecessors[-1].nextEvent.Fpass - a.duration
+                Floats[a.Activity] = (total_float, ind_float, free_float)
+            else:
+                total_float = a.nextEvent.Bpass - a.duration
+                ind_float = a.nextEvent.Fpass - a.duration
+                free_float = a.nextEvent.Fpass - a.duration
+                Floats[a.Activity] = (total_float, ind_float, free_float)
         return Floats
 
 class ActivityExtended:
@@ -141,7 +159,7 @@ class PERT(Project):
     def __init__(self):
         super().__init__()
         self.activities: list[PERTActivity] = []
-        self.paths: list[list[PERTActivity]] = [[]]
+        self.paths: list[list[PERTActivity]] = []
         self.critical_path: tuple[list[PERTActivity], int] = ([], 0)
     
     def add_Activity(self, Activity: PERTActivity):
