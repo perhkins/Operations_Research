@@ -273,6 +273,7 @@ def draw_event_network(project: Project):
 
     edge_labels = {}
     edge_colors = []
+    edge_color_map = {}
 
     critical_names = {
         a.Activity
@@ -295,16 +296,24 @@ def draw_event_network(project: Project):
 
         end_event = act.nextEvent.id
 
-        G.add_edge(start_event, end_event)
+        edge = (start_event, end_event)
+
+        G.add_edge(*edge)
 
         edge_labels[(start_event, end_event)] = (
             f"{act.Activity} ({act.duration})"
         )
 
-        if act.Activity in critical_names:
-            edge_colors.append("red")
-        else:
-            edge_colors.append("gray")
+        edge_color_map[edge] = (
+            "red"
+            if act.Activity in critical_names
+            else "gray"
+        )
+
+        # if act.Activity in critical_names:
+        #     edge_colors.append("red")
+        # else:
+        #     edge_colors.append("gray")
     
     from collections import defaultdict
 
@@ -349,6 +358,22 @@ def draw_event_network(project: Project):
                 level * 3,
                 ((n - 1) / 2 - i) * 5
             )
+    
+    print("Activities:")
+    for act in project.activities:
+        print(act.Activity)
+
+    print("\nGraph edges:")
+    for edge in G.edges():
+        print(edge)
+
+    print("\nColors:")
+    print(edge_colors)
+
+    edge_colors = [
+        edge_color_map[edge]
+        for edge in G.edges()
+    ]
 
     fig, ax = plt.subplots(figsize=(16,10))
     ax.set_aspect('equal')
